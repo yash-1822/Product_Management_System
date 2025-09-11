@@ -1,10 +1,10 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Save, X } from 'lucide-react';
 import styles from './ProductModal.module.css';
 import UploadImage from '../../Helpers/UploadImage';
 import { createProduct, updateProduct } from "../../Helpers/ProductApis";
-import { toast } from 'react-hot-toast';
+import { toast } from 'react-toastify'
+import imageCompression from 'browser-image-compression';
 
 const ProductModal = ({ onClose, editingProduct, fetchProducts }) => {
   const [formData, setFormData] = useState({
@@ -15,6 +15,7 @@ const ProductModal = ({ onClose, editingProduct, fetchProducts }) => {
     image: ''
   });
 
+  const [imageError, setImageError] = useState('');
   const [uploading, setUploading] = useState(false);
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
@@ -22,7 +23,7 @@ const ProductModal = ({ onClose, editingProduct, fetchProducts }) => {
   const fileInputRef = useRef();
   const modalRef = useRef();
 
-  const MAX_FILE_SIZE_MB = 2;
+  const MAX_FILE_SIZE_MB = 1; // Now set to 1MB
   const categories = ["select category", "mobile", "earphone", "fridge", "tv", "watch", "camera", "mouse", "printer"];
 
   useEffect(() => {
@@ -105,25 +106,45 @@ const ProductModal = ({ onClose, editingProduct, fetchProducts }) => {
     const file = e.target.files[0];
     if (!file) return;
 
-    if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
-      toast.error(`File size should not exceed ${MAX_FILE_SIZE_MB}MB`);
+    setImageError('');
+    if (!file.type.startsWith("image/")) {
+      setImageError("Please select a valid image file");
       return;
     }
-    if (!file.type.startsWith("image/")) {
-      toast.error("Please select a valid image file");
+
+
+    if (file.size > (MAX_FILE_SIZE_MB * 1024 * 1024)) {
+      console.log("Hi BRO");
+      setImageError(`File size should not exceed ${MAX_FILE_SIZE_MB}MB`);
       return;
     }
 
     try {
       setUploading(true);
-      const response = await UploadImage(file);
+      const options = {
+        maxSizeMB: MAX_FILE_SIZE_MB,
+        maxWidthOrHeight: 1024,
+        useWebWorker: true
+      };
+      const compressedFile = await imageCompression(file, options);
+
+      if (compressedFile.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
+
+        setImageError(`Compressed file size should not exceed ${MAX_FILE_SIZE_MB}MB`);
+        return;
+      }
+
+      const response = await UploadImage(compressedFile);
       if (response.secure_url) {
         setFormData(prev => ({ ...prev, image: response.secure_url }));
         setErrors(prev => ({ ...prev, image: '' }));
         toast.success("Image uploaded successfully!");
-      } else toast.error("Image upload failed");
-    } catch {
-      toast.error("Image upload failed, please try again.");
+      } else {
+        toast.error("Image upload failed");
+      }
+    } catch (error) {
+      console.error("Image compression/upload failed:", error);
+      setImageError("Image upload failed, please try again.");
     } finally {
       setUploading(false);
     }
@@ -155,7 +176,6 @@ const ProductModal = ({ onClose, editingProduct, fetchProducts }) => {
         <form onSubmit={handleSubmit} className={styles['modal-form']}>
           <div className={styles['form-grid']}>
 
-            {/* productName */}
             <div className={styles['input-group']}>
               <label htmlFor="name">Product Name *</label>
               <input
@@ -170,7 +190,6 @@ const ProductModal = ({ onClose, editingProduct, fetchProducts }) => {
               {errors.name && <span className={styles['error-message']}>{errors.name}</span>}
             </div>
 
-            {/* productPrice */}
             <div className={styles['input-group']}>
               <label htmlFor="price">Price *</label>
               <input
@@ -187,8 +206,6 @@ const ProductModal = ({ onClose, editingProduct, fetchProducts }) => {
               {errors.price && <span className={styles['error-message']}>{errors.price}</span>}
             </div>
 
-
-            {/* productCategory */}
             <div className={styles['input-group']}>
               <label htmlFor="category">Category</label>
               <select
@@ -205,7 +222,6 @@ const ProductModal = ({ onClose, editingProduct, fetchProducts }) => {
               {errors.category && <span className={styles['error-message']}>{errors.category}</span>}
             </div>
 
-            {/* productImage */}
             <div className={styles['input-group']}>
               <label>Product Image *</label>
               <div className={styles['image-upload-area']} onClick={() => !uploading && triggerFileInput()}>
@@ -220,18 +236,19 @@ const ProductModal = ({ onClose, editingProduct, fetchProducts }) => {
                 />
               </div>
 
-
               {formData.image && (
                 <div className={styles['image-preview-container']}>
                   <img src={formData.image} alt="preview" className={styles['image-thumb']} />
                   <button type="button" className={`${styles.btn} ${styles['btn-secondary']}`} onClick={removeImage}>Remove</button>
                 </div>
               )}
-              {errors.image && <span className={styles['error-message']}>{errors.image}</span>}
+              {/* {errors.image && <span className={styles['error-message']}>{errors.image}</span>} */}
+              {(errors.image || imageError) && (
+                <span className={styles['error-message']}>{errors.image || imageError}</span>
+              )}
             </div>
           </div>
 
-          {/* productDescription */}
           <div className={styles['input-group']}>
             <label htmlFor="description">Description *</label>
             <textarea
@@ -246,8 +263,6 @@ const ProductModal = ({ onClose, editingProduct, fetchProducts }) => {
             {errors.description && <span className={styles['error-message']}>{errors.description}</span>}
           </div>
 
-
-          {/* Buttons */}
           <div className={styles['form-actions']}>
             <button type="button" className={`${styles.btn} ${styles['btn-secondary']}`} onClick={onClose} disabled={loading}>
               <X size={20} /> Cancel
@@ -263,4 +278,3 @@ const ProductModal = ({ onClose, editingProduct, fetchProducts }) => {
 };
 
 export default ProductModal;
-

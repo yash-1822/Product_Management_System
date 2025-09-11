@@ -2,7 +2,6 @@ import React, { useState,useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, User, Lock, Shield, AlertCircle } from 'lucide-react';
 import { toast, ToastContainer } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
 import styles from './LoginPage.module.css';
 import { useModal } from '../../Context/ModalContext';
 
